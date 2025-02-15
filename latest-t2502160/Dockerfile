@@ -36,5 +36,5 @@ ENTRYPOINT ["tail", "-f", "/dev/null"]
 
 
 LABEL org.opencontainers.image.source=https://github.com/lwmacct/250216-cr-ktransformers
-LABEL org.opencontainers.image.description="docker buildx 模板"
+LABEL org.opencontainers.image.description="ktransformers"
 LABEL org.opencontainers.image.licenses=MIT

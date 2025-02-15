@@ -51,7 +51,7 @@ ENTRYPOINT ["tail", "-f", "/dev/null"]
 
 
 LABEL org.opencontainers.image.source=$_ghcr_source
-LABEL org.opencontainers.image.description="docker buildx 模板"
+LABEL org.opencontainers.image.description="ktransformers"
 LABEL org.opencontainers.image.licenses=MIT
 EOF
   )
