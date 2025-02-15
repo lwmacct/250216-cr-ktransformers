@@ -13,21 +13,42 @@ __main() {
   _dockerfile=$(
     # 双引号不转义
     cat <<"EOF"
-FROM ubuntu:noble-20241015
 ARG DEBIAN_FRONTEND=noninteractive
 
-RUN set -eux; \
-    echo "配置源,容器内源文件为 /etc/apt/sources.list.d/ubuntu.sources"; \
-    sed -i 's@//.*archive.ubuntu.com@//mirrors.ustc.edu.cn@g' /etc/apt/sources.list.d/ubuntu.sources; \
-    sed -i 's/security.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list.d/ubuntu.sources; \
-    apt-get update; apt-get install -y --no-install-recommends ca-certificates curl wget sudo pcp gnupg; \
-    sed -i 's/http:/https:/g' /etc/apt/sources.list.d/ubuntu.sources; \
-    apt-get clean; \
-    rm -rf /var/lib/apt/lists/*; \
-    echo "设置 PS1"; \
-    cat >> /root/.bashrc <<"MEOF"
-PS1='${debian_chroot:+($debian_chroot)}\[\033[01;33m\]\u\[\033[00m\]@\[\033[01;35m\]\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+FROM node:20.16.0 as web_compile
+WORKDIR /home
+RUN <<MEOF
+git clone https://github.com/kvcache-ai/ktransformers.git &&
+cd ktransformers/ktransformers/website/ &&
+npm install @vue/cli &&
+npm run build &&
+rm -rf node_modules
 MEOF
+
+FROM pytorch/pytorch:2.3.1-cuda12.1-cudnn8-devel as compile_server
+WORKDIR /workspace
+ENV CUDA_HOME /usr/local/cuda
+COPY --from=web_compile /home/ktransformers /workspace/ktransformers
+RUN <<MEOF
+apt update -y &&  apt install -y  --no-install-recommends \
+    git \
+    wget \
+    vim \
+    gcc \
+    g++ \
+    cmake && 
+rm -rf /var/lib/apt/lists/* &&
+cd ktransformers &&
+git submodule init &&
+git submodule update &&
+pip install ninja pyproject numpy cpufeature &&
+pip install flash-attn &&
+CPU_INSTRUCT=NATIVE  KTRANSFORMERS_FORCE_BUILD=TRUE TORCH_CUDA_ARCH_LIST="8.0;8.6;8.7;8.9;9.0+PTX" pip install . --no-build-isolation --verbose &&
+pip cache purge
+MEOF
+
+ENTRYPOINT ["tail", "-f", "/dev/null"]
+
 
 LABEL org.opencontainers.image.source=$_ghcr_source
 LABEL org.opencontainers.image.description="docker buildx 模板"
